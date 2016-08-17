@@ -177,12 +177,16 @@ __EXPORT int nsh_archinitialize(void)
 	px4_arch_configgpio(GPIO_ADC1_IN15);	/* PRESSURE_SENS */
 
 	/* configure power supply control/sense pins */
-//	px4_arch_configgpio(GPIO_VDD_5V_PERIPH_EN);
-//	px4_arch_configgpio(GPIO_VDD_3V3_SENSORS_EN);
-//	px4_arch_configgpio(GPIO_VDD_BRICK_VALID);
-//	px4_arch_configgpio(GPIO_VDD_SERVO_VALID);
-//	px4_arch_configgpio(GPIO_VDD_5V_HIPOWER_OC);
-//	px4_arch_configgpio(GPIO_VDD_5V_PERIPH_OC);
+	// px4_arch_configgpio(GPIO_VDD_5V_PERIPH_EN);
+	// px4_arch_configgpio(GPIO_VDD_3V3_SENSORS_EN);
+	// px4_arch_configgpio(GPIO_VDD_BRICK_VALID);
+	// px4_arch_configgpio(GPIO_VDD_SERVO_VALID);
+	// px4_arch_configgpio(GPIO_VDD_5V_HIPOWER_OC);
+	// px4_arch_configgpio(GPIO_VDD_5V_PERIPH_OC);
+	px4_arch_configgpio(GPIO_SBUS_INV);
+	px4_arch_configgpio(GPIO_SPEKTRUM_PWR_EN);
+	px4_arch_configgpio(GPIO_RC_OUT);	/* Serial RC output pin */
+	px4_arch_gpiowrite(GPIO_RC_OUT, 1);	/* set it high to pull RC input up */
 
 	/* configure the high-resolution time/callout interface */
 	hrt_init();
