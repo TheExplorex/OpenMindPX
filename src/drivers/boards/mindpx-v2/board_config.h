@@ -121,6 +121,7 @@
 #define PX4_SPIDEV_ACCEL_MAG	2
 #define PX4_SPIDEV_BARO		3
 #define PX4_SPIDEV_MPU		4
+#define	PX4_SPIDEV_BMI		5
 
 /* External bus */
 #define PX4_SPIDEV_EXT0		1

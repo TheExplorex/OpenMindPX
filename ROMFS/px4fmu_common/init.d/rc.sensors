@@ -283,6 +283,10 @@ then
 	then
 	fi
 
+	if bmi160 -R 10 start
+	then
+	fi
+
 	if lsm303d -R 10 start
 	then
 	fi
