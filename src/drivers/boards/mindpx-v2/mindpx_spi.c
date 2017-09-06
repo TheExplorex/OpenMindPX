@@ -81,10 +81,10 @@ __EXPORT void weak_function stm32_spiinitialize(void)
 	 * state machines
 	 */
 
-	px4_arch_configgpio(GPIO_EXTI_GYRO_DRDY);
-	px4_arch_configgpio(GPIO_EXTI_MAG_DRDY);
-	px4_arch_configgpio(GPIO_EXTI_ACCEL_DRDY);
-	px4_arch_configgpio(GPIO_EXTI_MPU_DRDY);
+	// px4_arch_configgpio(GPIO_EXTI_GYRO_DRDY);
+	// px4_arch_configgpio(GPIO_EXTI_MAG_DRDY);
+	// px4_arch_configgpio(GPIO_EXTI_ACCEL_DRDY);
+	// px4_arch_configgpio(GPIO_EXTI_MPU_DRDY);
 #endif
 
 #ifdef CONFIG_STM32_SPI1
@@ -193,15 +193,15 @@ __EXPORT void board_spi_reset(int ms)
 	px4_arch_gpiowrite(GPIO_SPI4_MISO_OFF, 0);
 	px4_arch_gpiowrite(GPIO_SPI4_MOSI_OFF, 0);
 
-	px4_arch_configgpio(GPIO_GYRO_DRDY_OFF);
-	px4_arch_configgpio(GPIO_MAG_DRDY_OFF);
-	px4_arch_configgpio(GPIO_ACCEL_DRDY_OFF);
-	px4_arch_configgpio(GPIO_EXTI_MPU_DRDY_OFF);
+	// px4_arch_configgpio(GPIO_GYRO_DRDY_OFF);
+	// px4_arch_configgpio(GPIO_MAG_DRDY_OFF);
+	// px4_arch_configgpio(GPIO_ACCEL_DRDY_OFF);
+	// px4_arch_configgpio(GPIO_EXTI_MPU_DRDY_OFF);
 
-	px4_arch_gpiowrite(GPIO_GYRO_DRDY_OFF, 0);
-	px4_arch_gpiowrite(GPIO_MAG_DRDY_OFF, 0);
-	px4_arch_gpiowrite(GPIO_ACCEL_DRDY_OFF, 0);
-	px4_arch_gpiowrite(GPIO_EXTI_MPU_DRDY_OFF, 0);
+	// px4_arch_gpiowrite(GPIO_GYRO_DRDY_OFF, 0);
+	// px4_arch_gpiowrite(GPIO_MAG_DRDY_OFF, 0);
+	// px4_arch_gpiowrite(GPIO_ACCEL_DRDY_OFF, 0);
+	// px4_arch_gpiowrite(GPIO_EXTI_MPU_DRDY_OFF, 0);
 
 	//        /* set the sensor rail off */
 	//        stm32_configgpio(GPIO_VDD_3V3_SENSORS_EN);

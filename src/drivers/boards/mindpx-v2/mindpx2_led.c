@@ -60,37 +60,46 @@ extern void led_off(int led);
 extern void led_toggle(int led);
 __END_DECLS
 
-__EXPORT void led_init()
-{
-	/* Configure LED1 GPIO for output */
+static uint32_t g_ledmap[] = {
+	GPIO_LED_BLUE,    // Indexed by LED_BLUE
+	GPIO_LED_RED,     // Indexed by LED_RED, LED_AMBER
+	0,
+	GPIO_LED_GREEN,   // Indexed by LED_GREEN
+};
 
-	stm32_configgpio(GPIO_LED1);
+__EXPORT void led_init(void)
+{
+	/* Configure LED GPIOs for output */
+	for (size_t l = 0; l < (sizeof(g_ledmap) / sizeof(g_ledmap[0])); l++) {
+		stm32_configgpio(g_ledmap[l]);
+	}
+}
+
+static void phy_set_led(int led, bool state)
+{
+	/* Pull Down to switch on */
+	stm32_gpiowrite(g_ledmap[led], !state);
+}
+
+static bool phy_get_led(int led)
+{
+
+	return !stm32_gpioread(g_ledmap[led]);
 }
 
 __EXPORT void led_on(int led)
 {
-	if (led == 1) {
-		/* Pull down to switch on */
-		stm32_gpiowrite(GPIO_LED1, false);
-	}
+	phy_set_led(led, true);
 }
 
 __EXPORT void led_off(int led)
 {
-	if (led == 1) {
-		/* Pull up to switch off */
-		stm32_gpiowrite(GPIO_LED1, true);
-	}
+	phy_set_led(led, false);
 }
 
 __EXPORT void led_toggle(int led)
 {
-	if (led == 1) {
-		if (stm32_gpioread(GPIO_LED1)) {
-			stm32_gpiowrite(GPIO_LED1, false);
 
-		} else {
-			stm32_gpiowrite(GPIO_LED1, true);
-		}
-	}
+	phy_set_led(led, !phy_get_led(led));
 }
+
