@@ -56,12 +56,6 @@
 /* PX4FMU GPIOs ***********************************************************************************/
 /* LEDs */
 #define GPIO_LED1	(GPIO_OUTPUT|GPIO_OPENDRAIN|GPIO_SPEED_50MHz|GPIO_OUTPUT_CLEAR|GPIO_PORTA|GPIO_PIN8)
-#define GPIO_LED2	(GPIO_OUTPUT|GPIO_OPENDRAIN|GPIO_SPEED_50MHz|GPIO_OUTPUT_CLEAR|GPIO_PORTE|GPIO_PIN4)
-#define GPIO_LED3	(GPIO_OUTPUT|GPIO_OPENDRAIN|GPIO_SPEED_50MHz|GPIO_OUTPUT_CLEAR|GPIO_PORTC|GPIO_PIN14)
-
-#define GPIO_LED_RED	GPIO_LED1
-#define GPIO_LED_GREEN	GPIO_LED2
-#define GPIO_LED_BLUE	GPIO_LED3
 
 /* External interrupts */
 // #define GPIO_EXTI_GYRO_DRDY	(GPIO_INPUT|GPIO_FLOAT|GPIO_EXTI|GPIO_PORTE|GPIO_PIN4)
@@ -242,6 +236,7 @@
 #define GPIO_GPIO6_OUTPUT	(GPIO_OUTPUT|GPIO_PUSHPULL|GPIO_SPEED_2MHz|GPIO_OUTPUT_CLEAR|GPIO_PORTA|GPIO_PIN2)
 #define GPIO_GPIO7_OUTPUT	(GPIO_OUTPUT|GPIO_PUSHPULL|GPIO_SPEED_2MHz|GPIO_OUTPUT_CLEAR|GPIO_PORTA|GPIO_PIN3)
 
+
 /*AUX PWMs */
 #define GPIO_TIM3_CH1OUT	(GPIO_ALT|GPIO_AF2|GPIO_SPEED_50MHz|GPIO_OUTPUT_CLEAR|GPIO_PUSHPULL|GPIO_PORTB|GPIO_PIN4)
 #define GPIO_TIM3_CH2OUT	(GPIO_ALT|GPIO_AF2|GPIO_SPEED_50MHz|GPIO_OUTPUT_CLEAR|GPIO_PUSHPULL|GPIO_PORTC|GPIO_PIN7)
@@ -265,6 +260,13 @@
 
 #define DIRECT_INPUT_TIMER_CHANNELS	8
 
+
+#define BOARD_HAS_LED_PWM
+#define BOARD_LED_PWM_DRIVE_ACTIVE_LOW 1
+#define BOARD_HAS_SHARED_PWM_TIMERS
+#define LED_TIM2_CH2OUT		GPIO_TIM2_CH2OUT
+#define LED_TIM2_CH3OUT		GPIO_TIM2_CH3OUT
+#define LED_TIM2_CH4OUT		GPIO_TIM2_CH4OUT
 
 
 /* USB OTG FS
@@ -333,10 +335,7 @@
 		{GPIO_GPIO1_INPUT,       GPIO_GPIO1_OUTPUT,       0}, \
 		{GPIO_GPIO2_INPUT,       GPIO_GPIO2_OUTPUT,       0}, \
 		{GPIO_GPIO3_INPUT,       GPIO_GPIO3_OUTPUT,       0}, \
-		{GPIO_GPIO4_INPUT,       GPIO_GPIO4_OUTPUT,       0}, \
-		{GPIO_GPIO5_INPUT,       GPIO_GPIO5_OUTPUT,       0}, \
-		{GPIO_GPIO6_INPUT,       GPIO_GPIO6_OUTPUT,       0}, \
-		{GPIO_GPIO7_INPUT,       GPIO_GPIO7_OUTPUT,       0}, }
+		{GPIO_GPIO4_INPUT,       GPIO_GPIO4_OUTPUT,       0}, }
 
 /*
  * GPIO numbers.
@@ -348,9 +347,9 @@
 #define GPIO_SERVO_3			(1<<2)		/**< servo 3 output */
 #define GPIO_SERVO_4			(1<<3)		/**< servo 4 output */
 #define GPIO_SERVO_5			(1<<4)		/**< servo 5 output */
-#define GPIO_SERVO_6			(1<<5)		/**< servo 6 output */
-#define GPIO_SERVO_7			(1<<6)		/**< servo 7 output */
-#define GPIO_SERVO_8			(1<<7)		/**< servo 8 output */
+// #define GPIO_SERVO_6			(1<<5)		/**< servo 6 output */
+// #define GPIO_SERVO_7			(1<<6)		/**< servo 7 output */
+// #define GPIO_SERVO_8			(1<<7)		/**< servo 8 output */
 
 /* This board provides a DMA pool and APIs */
 
