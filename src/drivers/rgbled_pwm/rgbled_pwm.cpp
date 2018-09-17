@@ -35,7 +35,7 @@
  * @file rgbled_pwm.cpp
  *
  * Driver for the onboard RGB LED controller by PWM.
- * this driver is based the PX4 led driver
+ * this driver is based on the PX4 led driver
  *
  */
 
@@ -56,9 +56,8 @@
 #include <nuttx/wqueue.h>
 #include <drivers/drv_hrt.h>
 
-#include <systemlib/perf_counter.h>
+#include <perf/perf_counter.h>
 #include <systemlib/err.h>
-#include <systemlib/systemlib.h>
 
 #include <board_config.h>
 
@@ -66,47 +65,54 @@
 #include <lib/led/led.h>
 #include <drivers/device/device.h>
 #include <systemlib/err.h>
+#include <drivers/drv_pwm_output.h>
+
+#include <lib/pwmgroups/pwmgroups.h>
 
 #define RGBLED_ONTIME 120
 #define RGBLED_OFFTIME 120
 
-class RGBLED_PWM : public device::CDev
+__EXPORT const extern uint8_t led_group_timer_map;
+__EXPORT const extern uint32_t led_group_channel_map;
+
+
+class RGBLED_PWM : public StaticPwmDevice
 {
 public:
-	RGBLED_PWM();
-	virtual ~RGBLED_PWM();
+    RGBLED_PWM();
+    virtual ~RGBLED_PWM();
 
 
-	virtual int		init();
-	virtual int		probe();
-	int		status();
-
+    virtual int        init();
+    virtual int        probe();
+    int        status();
+    int     init_rgb_led_pwm_servo();
+    
 private:
-	work_s			_work;
+    work_s            _work;
 
 	uint8_t			_r;
 	uint8_t			_g;
 	uint8_t			_b;
-	float			_brightness;
 
-	volatile bool		_running;
-	volatile bool		_should_run;
+    volatile bool        _running;
+    volatile bool        _should_run;
 
-	LedController		_led_controller;
+    LedController        _led_controller;
 
-	static void		led_trampoline(void *arg);
-	void			led();
+    static void        led_trampoline(void *arg);
+    void            led();
 
-	int			send_led_rgb();
-	int			get(bool &on, bool &powersave, uint8_t &r, uint8_t &g, uint8_t &b);
+    int            send_led_rgb();
+    int            get(bool &on, bool &powersave, uint8_t &r, uint8_t &g, uint8_t &b);
 };
 
-extern "C" __EXPORT int rgbled_main(int argc, char *argv[]);
+extern "C" __EXPORT int rgbled_pwm_main(int argc, char *argv[]);
 extern int led_pwm_servo_set(unsigned channel, uint8_t  value);
 extern unsigned led_pwm_servo_get(unsigned channel);
 extern int led_pwm_servo_init(void);
 extern void led_pwm_servo_deinit(void);
-
+extern int led_pwm_servo_init_group_map(uint8_t timer_map, uint32_t channel_map);
 
 /* for now, we only support one RGBLED */
 namespace
@@ -114,77 +120,103 @@ namespace
 RGBLED_PWM *g_rgbled = nullptr;
 }
 
-void rgbled_usage();
-
 RGBLED_PWM::RGBLED_PWM() :
-	CDev("rgbled", RGBLED0_DEVICE_PATH),
-	_work{},
-	_r(0),
-	_g(0),
-	_b(0),
-	_brightness(1.0f),
-	_running(false),
-	_should_run(true)
+    StaticPwmDevice("rgbled_pwm", RGBLED_PWM0_DEVICE_PATH),
+    _work{},
+    _r(0),
+    _g(0),
+    _b(0),
+    _running(false),
+    _should_run(true)
 {
 }
 
 RGBLED_PWM::~RGBLED_PWM()
 {
-	_should_run = false;
-	int counter = 0;
+    _should_run = false;
+    int counter = 0;
 
-	while (_running && ++counter < 10) {
-		usleep(100000);
-	}
+    while (_running && ++counter < 10) {
+        usleep(100000);
+    }
 }
 
 int
 RGBLED_PWM::init()
 {
-	/* switch off LED on start */
-	CDev::init();
-	led_pwm_servo_init();
-	send_led_rgb();
+    /* switch off LED on start */
+    CDev::init();
+    printf("Initializing pwm tri-color LED ...\n");
+    _group_timer_map = led_group_timer_map;
+    _working_channel_map = led_group_channel_map;
+    _timer_map_offset = group_timer_map_offset(led_group_timer_map);
+    _channel_map_offset = group_channel_map_offset(_working_channel_map);
+    _working_pwm_rate_up_limit = 400;
+    _working_pwm_rate_low_limit = 50;
+    
+    _default_rate = 50;
+    _alt_rate = 400;
+    _working_rate = PWM_GROUP_RATE_UNSPECIFIED;
+    
+    if (register_working_channels()!=OK) {
+        printf("fail to register rgb led\n");
+        return -EINVAL;
+    }
+    //led_pwm_servo_init();
+    led_pwm_servo_init_group_map(_group_timer_map, _working_channel_map);
+    
+    uint8_t group_idx = 1 << _timer_map_offset ;
+    while ((group_idx & _group_timer_map) != 0) {
+        if (_working_rate == PWM_GROUP_RATE_ALT) {
+            up_pwm_servo_set_rate_group_update(group_idx, 400);
+        }
+        else {
+            up_pwm_servo_set_rate_group_update(group_idx, 50);
+        }
+        group_idx <<= 1;
+    }
+    
+    send_led_rgb();
 
-	_running = true;
-	// kick off work queue
-	work_queue(LPWORK, &_work, (worker_t)&RGBLED_PWM::led_trampoline, this, 0);
+    _running = true;
+    // kick off work queue
+    work_queue(LPWORK, &_work, (worker_t)&RGBLED_PWM::led_trampoline, this, 0);
 
-	return OK;
+    return OK;
 }
 
 int
 RGBLED_PWM::status()
 {
-	int ret;
-	bool on, powersave;
-	uint8_t r, g, b;
+    int ret;
+    bool on, powersave;
+    uint8_t r, g, b;
 
-	ret = get(on, powersave, r, g, b);
+    ret = get(on, powersave, r, g, b);
 
-	if (ret == OK) {
-		/* we don't care about power-save mode */
-		DEVICE_LOG("state: %s", on ? "ON" : "OFF");
-		DEVICE_LOG("red: %u, green: %u, blue: %u", (unsigned)r, (unsigned)g, (unsigned)b);
+    if (ret == OK) {
+        /* we don't care about power-save mode */
+        DEVICE_LOG("state: %s", on ? "ON" : "OFF");
+        DEVICE_LOG("red: %u, green: %u, blue: %u", (unsigned)r, (unsigned)g, (unsigned)b);
 
-	} else {
-		PX4_WARN("failed to read led");
-	}
+    } else {
+        PX4_WARN("failed to read led");
+    }
 
-	return ret;
+    return ret;
 }
 int
 RGBLED_PWM::probe()
 {
-	return (OK);
+    return (OK);
 }
 
 void
 RGBLED_PWM::led_trampoline(void *arg)
 {
-	RGBLED_PWM *rgbl = reinterpret_cast<RGBLED_PWM *>(arg);
+    RGBLED_PWM *rgbl = reinterpret_cast<RGBLED_PWM *>(arg);
 
-	rgbl->led();
+    rgbl->led();
 }
 
 /**
@@ -193,53 +225,55 @@ RGBLED_PWM::led_trampoline(void *arg)
 void
 RGBLED_PWM::led()
 {
-	if (!_should_run) {
-		int led_control_sub = _led_controller.led_control_subscription();
+    if (!_should_run) {
+        int led_control_sub = _led_controller.led_control_subscription();
 
-		if (led_control_sub >= 0) {
-			orb_unsubscribe(led_control_sub);
-		}
+        if (led_control_sub >= 0) {
+            orb_unsubscribe(led_control_sub);
+        }
 
-		_running = false;
-		return;
-	}
+        _running = false;
+        return;
+    }
 
-	if (!_led_controller.is_init()) {
-		int led_control_sub = orb_subscribe(ORB_ID(led_control));
-		_led_controller.init(led_control_sub);
-	}
+    if (!_led_controller.is_init()) {
+        int led_control_sub = orb_subscribe(ORB_ID(led_control));
+        _led_controller.init(led_control_sub);
+    }
 
-	LedControlData led_control_data;
+    LedControlData led_control_data;
 
 	if (_led_controller.update(led_control_data) == 1) {
+        uint8_t brightness = led_control_data.leds[0].brightness;
+
 		switch (led_control_data.leds[0].color) {
 		case led_control_s::COLOR_RED:
-			_r = 255; _g = 0; _b = 0;
+			_r = brightness; _g = 0; _b = 0;
 			break;
 
 		case led_control_s::COLOR_GREEN:
-			_r = 0; _g = 255; _b = 0;
+			_r = 0; _g = brightness; _b = 0;
 			break;
 
 		case led_control_s::COLOR_BLUE:
-			_r = 0; _g = 0; _b = 255;
+			_r = 0; _g = 0; _b = brightness;
 			break;
 
 		case led_control_s::COLOR_AMBER: //make it the same as yellow
 		case led_control_s::COLOR_YELLOW:
-			_r = 255; _g = 255; _b = 0;
+			_r = brightness; _g = brightness; _b = 0;
 			break;
 
 		case led_control_s::COLOR_PURPLE:
-			_r = 255; _g = 0; _b = 255;
+			_r = brightness; _g = 0; _b = brightness;
 			break;
 
 		case led_control_s::COLOR_CYAN:
-			_r = 0; _g = 255; _b = 255;
+			_r = 0; _g = brightness; _b = brightness;
 			break;
 
 		case led_control_s::COLOR_WHITE:
-			_r = 255; _g = 255; _b = 255;
+			_r = brightness; _g = brightness; _b = brightness;
 			break;
 
 		default: // led_control_s::COLOR_OFF
@@ -247,14 +281,13 @@ RGBLED_PWM::led()
 			break;
 		}
 
-		_brightness = (float)led_control_data.leds[0].brightness / 255.f;
-
 		send_led_rgb();
 	}
 
 	/* re-queue ourselves to run again later */
 	work_queue(LPWORK, &_work, (worker_t)&RGBLED_PWM::led_trampoline, this,
 		   USEC2TICK(_led_controller.maximum_update_interval()));
+
 }
 
 /**
@@ -264,97 +297,105 @@ int
 RGBLED_PWM::send_led_rgb()
 {
 
-	led_pwm_servo_set(0, _r);
-	led_pwm_servo_set(1, _g);
-	led_pwm_servo_set(2, _b);
+#if defined(BOARD_HAS_LED_PWM)
+    led_pwm_servo_set(0, _r);
+    led_pwm_servo_set(1, _g);
+    led_pwm_servo_set(2, _b);
+#endif
 
-	return (OK);
+#if defined(BOARD_HAS_UI_LED_PWM)
+    led_pwm_servo_set(3, _r);
+    led_pwm_servo_set(4, _g);
+    led_pwm_servo_set(5, _b);
+#endif
+
+    return (OK);
 }
 
 int
 RGBLED_PWM::get(bool &on, bool &powersave, uint8_t &r, uint8_t &g, uint8_t &b)
 {
-	powersave = OK;
-	on = _r > 0 || _g > 0 || _b > 0;
-	r = _r;
-	g = _g;
-	b = _b;
-	return OK;
+    powersave = OK;
+    on = _r > 0 || _g > 0 || _b > 0;
+    r = _r;
+    g = _g;
+    b = _b;
+    return OK;
 }
 
-void
+static void
 rgbled_usage()
 {
-	PX4_INFO("missing command: try 'start', 'status', 'stop'");
+    PX4_INFO("missing command: try 'start', 'status', 'stop'");
 }
 
 int
-rgbled_main(int argc, char *argv[])
+rgbled_pwm_main(int argc, char *argv[])
 {
-	int ch;
+    int ch;
 
-	/* jump over start/off/etc and look at options first */
-	while ((ch = getopt(argc, argv, "a:b:")) != EOF) {
-		switch (ch) {
-		case 'a':
-			break;
+    /* jump over start/off/etc and look at options first */
+    while ((ch = getopt(argc, argv, "a:b:")) != EOF) {
+        switch (ch) {
+        case 'a':
+            break;
 
-		case 'b':
-			break;
+        case 'b':
+            break;
 
-		default:
-			rgbled_usage();
-			exit(0);
-		}
-	}
+        default:
+            rgbled_usage();
+            exit(0);
+        }
+    }
 
-	if (optind >= argc) {
-		rgbled_usage();
-		exit(1);
-	}
+    if (optind >= argc) {
+        rgbled_usage();
+        exit(1);
+    }
 
-	const char *verb = argv[optind];
+    const char *verb = argv[optind];
 
-	if (!strcmp(verb, "start")) {
-		if (g_rgbled != nullptr) {
-			errx(1, "already started");
-		}
+    if (!strcmp(verb, "start")) {
+        if (g_rgbled != nullptr) {
+            errx(1, "already started");
+        }
 
-		if (g_rgbled == nullptr) {
-			g_rgbled = new RGBLED_PWM();
+        if (g_rgbled == nullptr) {
+            g_rgbled = new RGBLED_PWM();
 
-			if (g_rgbled == nullptr) {
-				errx(1, "new failed");
-			}
+            if (g_rgbled == nullptr) {
+                errx(1, "new failed");
+            }
 
-			if (OK != g_rgbled->init()) {
-				delete g_rgbled;
-				g_rgbled = nullptr;
-				errx(1, "init failed");
-			}
-		}
+            if (OK != g_rgbled->init()) {
+                delete g_rgbled;
+                g_rgbled = nullptr;
+                errx(1, "init failed");
+            }
+        }
 
-		exit(0);
-	}
+        exit(0);
+    }
 
-	/* need the driver past this point */
-	if (g_rgbled == nullptr) {
-		PX4_WARN("not started");
-		rgbled_usage();
-		exit(1);
-	}
+    /* need the driver past this point */
+    if (g_rgbled == nullptr) {
+        PX4_WARN("not started");
+        rgbled_usage();
+        exit(1);
+    }
 
-	if (!strcmp(verb, "status")) {
-		g_rgbled->status();
-		exit(0);
-	}
+    if (!strcmp(verb, "status")) {
+        g_rgbled->status();
+        exit(0);
+    }
 
-	if (!strcmp(verb, "stop")) {
-		delete g_rgbled;
-		g_rgbled = nullptr;
-		exit(0);
-	}
+    if (!strcmp(verb, "stop")) {
+        delete g_rgbled;
+        g_rgbled = nullptr;
+        exit(0);
+    }
 
-	rgbled_usage();
-	exit(0);
+    rgbled_usage();
+    exit(0);
 }

@@ -52,18 +52,17 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <poll.h>
-#include <sys/ioctl.h>
+//#include <sys/ioctl.h>
 #include <sys/stat.h>
 
 #ifdef __PX4_NUTTX
-#include <nuttx/fs/ioctl.h>
+//#include <nuttx/fs/ioctl.h>
 #endif
 
 #include <arch/board/board.h>
 
-#include "systemlib/systemlib.h"
 #include "systemlib/err.h"
-#include "systemlib/param/param.h"
+#include <parameters/param.h>
 #include "drivers/drv_pwm_output.h"
 
 static void	usage(const char *reason);
@@ -254,8 +253,7 @@ pwm_main(int argc, char *argv[])
 				set_mask |= 1 << (single_ch - 1);
 				channels /= 10;
 			}
-
-			break;
+ 			break;
 
 		case 'g':
 			group = strtoul(myoptarg, &ep, 0);
@@ -289,6 +287,7 @@ pwm_main(int argc, char *argv[])
 
 		case 'p':
 			pwm_value = get_parameter_value(myoptarg, "PWM Value");
+
 			break;
 
 		case 'r':
@@ -332,9 +331,9 @@ pwm_main(int argc, char *argv[])
 	/* get the number of servo channels */
 	unsigned servo_count;
 	ret = px4_ioctl(fd, PWM_SERVO_GET_COUNT, (unsigned long)&servo_count);
-
 	if (ret != OK) {
-		PX4_ERR("PWM_SERVO_GET_COUNT");
+        int err = get_errno();
+		PX4_ERR("PWM_SERVO_GET_COUNT %d", err);
 		return error_on_warn;
 	}
 
@@ -375,6 +374,13 @@ pwm_main(int argc, char *argv[])
 
 		return 0;
 
+    }else if (!strcmp(command, "led")) {
+        /* set pwm led flag */
+        printf("[pwm cmd] Set use pwm led\n");
+        ret = px4_ioctl(fd, PWM_SERVO_SET_USE_PWM_LED, 1);
+        
+        return 0;
+        
 	} else if (oneshot || !strcmp(command, "rate")) {
 
 		/* Change alternate PWM rate or set oneshot
@@ -433,7 +439,6 @@ pwm_main(int argc, char *argv[])
 		return 0;
 
 	} else if (!strcmp(command, "min")) {
-
 		if (set_mask == 0) {
 			usage("min: no channels set");
 			return 1;
@@ -580,7 +585,6 @@ pwm_main(int argc, char *argv[])
 			return 1;
 
 		} else {
-
 			ret = px4_ioctl(fd, PWM_SERVO_SET_DISARMED_PWM, (long unsigned int)&pwm_values);
 
 			if (ret != OK) {

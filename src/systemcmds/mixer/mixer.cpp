@@ -48,7 +48,7 @@
 #include <errno.h>
 #include <ctype.h>
 
-#include <systemlib/mixer/mixer.h>
+#include <lib/mixer/mixer.h>
 #include <uORB/topics/actuator_controls.h>
 
 /**
@@ -144,6 +144,9 @@ load(const char *devname, const char *fname, bool append)
 	/* reset mixers on the device, but not if appending */
 	if (!append) {
 		if (px4_ioctl(dev, MIXERIOCRESET, 0)) {
+            int err = get_errno();
+            PX4_ERR("reset mixer error %d", err);
+
 			PX4_ERR("can't reset mixers on %s", devname);
 			return 1;
 		}

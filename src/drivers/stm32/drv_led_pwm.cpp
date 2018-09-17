@@ -52,9 +52,8 @@
 #include <ctype.h>
 
 
-#include <systemlib/perf_counter.h>
+#include <perf/perf_counter.h>
 #include <systemlib/err.h>
-#include <systemlib/systemlib.h>
 #include <systemlib/px4_macros.h>
 
 #include <drivers/drv_pwm_output.h>
@@ -96,6 +95,7 @@
 
 
 extern int             io_timer_init_timer(unsigned timer);
+extern int              up_pwm_servo_init(uint32_t channel_mask, uint16_t clear_mask);
 
 static void             led_pwm_channel_init(unsigned channel);
 
@@ -106,6 +106,7 @@ void led_pwm_servo_deinit(void);
 void led_pwm_servo_arm(bool armed);
 unsigned led_pwm_timer_get_period(unsigned timer);
 
+int led_pwm_servo_init_group_map(uint8_t timer_map, uint32_t channel_map);
 
 unsigned
 led_pwm_timer_get_period(unsigned timer)
@@ -147,14 +148,14 @@ static void led_pwm_timer_init_timer(unsigned timer)
 
 	/* If the timer clock source provided as clock_freq is the STM32_APBx_TIMx_CLKIN
 	 * then configure the timer to free-run at 1MHz.
-	 * Otherwize, other frequencies are attainable by adjusting .clock_freq accordingly.
+	 * Otherwise, other frequencies are attainable by adjusting .clock_freq accordingly.
 	 */
 
 	rPSC(timer) = (led_pwm_timers[timer].clock_freq / 1000000) - 1;
 
 	/* configure the timer to update at the desired rate */
 
-	rARR(timer) = 1000000 / LED_PWM_RATE;
+	rARR(timer) = (1000000 / LED_PWM_RATE) - 1;
 
 	/* generate an update event; reloads the counter and all registers */
 	rEGR(timer) = GTIM_EGR_UG;
@@ -170,32 +171,36 @@ led_pwm_channel_init(unsigned channel)
 	/* Only initialize used channels */
 
 	if (led_pwm_channels[channel].timer_channel) {
-
+        
 		unsigned timer = led_pwm_channels[channel].timer_index;
+        printf("init led pwm timer #%d, channel #%d\n", timer, channel);
 
 		/* configure the GPIO first */
 		px4_arch_configgpio(led_pwm_channels[channel].gpio_out);
+
+        uint16_t polarity = 0; //led_pwm_channels[channel].masks;
+        printf("polarity for channel #%d: %d\n", channel, polarity);
 
 		/* configure the channel */
 		switch (led_pwm_channels[channel].timer_channel) {
 		case 1:
 			rCCMR1(timer) |= (GTIM_CCMR_MODE_PWM1 << GTIM_CCMR1_OC1M_SHIFT) | GTIM_CCMR1_OC1PE;
-			rCCER(timer) |= GTIM_CCER_CC1E;
+			rCCER(timer) |= polarity | GTIM_CCER_CC1E;
 			break;
 
 		case 2:
 			rCCMR1(timer) |= (GTIM_CCMR_MODE_PWM1 << GTIM_CCMR1_OC2M_SHIFT) | GTIM_CCMR1_OC2PE;
-			rCCER(timer) |= GTIM_CCER_CC2E;
+			rCCER(timer) |= polarity | GTIM_CCER_CC2E;
 			break;
 
 		case 3:
 			rCCMR2(timer) |= (GTIM_CCMR_MODE_PWM1 << GTIM_CCMR2_OC3M_SHIFT) | GTIM_CCMR2_OC3PE;
-			rCCER(timer) |= GTIM_CCER_CC3E;
+			rCCER(timer) |= polarity | GTIM_CCER_CC3E;
 			break;
 
 		case 4:
 			rCCMR2(timer) |= (GTIM_CCMR_MODE_PWM1 << GTIM_CCMR2_OC4M_SHIFT) | GTIM_CCMR2_OC4PE;
-			rCCER(timer) |= GTIM_CCER_CC4E;
+			rCCER(timer) |= polarity | GTIM_CCER_CC4E;
 			break;
 		}
 	}
@@ -207,7 +212,6 @@ led_pwm_servo_set(unsigned channel, uint8_t  cvalue)
 	if (channel >= arraySize(led_pwm_channels)) {
 		return -1;
 	}
-
 	unsigned timer = led_pwm_channels[channel].timer_index;
 
 	/* test timer for validity */
@@ -219,16 +223,15 @@ led_pwm_servo_set(unsigned channel, uint8_t  cvalue)
 	unsigned period = led_pwm_timer_get_period(timer);
 
 #if defined(BOARD_LED_PWM_DRIVE_ACTIVE_LOW)
-	unsigned value = period - (unsigned)cvalue * period / 255;
+    unsigned value = period - (unsigned)cvalue * period / 255;
 #else
-	unsigned value = (unsigned)cvalue * period / 255;
+    unsigned value = (unsigned)cvalue * period / 255;
 #endif
-
+    
 	/* configure the channel */
 	if (value > 0) {
 		value--;
 	}
-
 
 	switch (led_pwm_channels[channel].timer_channel) {
 	case 1:
@@ -245,6 +248,7 @@ led_pwm_servo_set(unsigned channel, uint8_t  cvalue)
 
 	case 4:
 		rCCR4(timer) = value;
+
 		break;
 
 	default:
@@ -253,6 +257,7 @@ led_pwm_servo_set(unsigned channel, uint8_t  cvalue)
 
 	return 0;
 }
+
 unsigned
 led_pwm_servo_get(unsigned channel)
 {
@@ -291,14 +296,17 @@ led_pwm_servo_get(unsigned channel)
 	unsigned period = led_pwm_timer_get_period(timer);
 	return ((value + 1) * 255 / period);
 }
+
 int
-led_pwm_servo_init(void)
+led_pwm_servo_init()
 {
 	/* do basic timer initialisation first */
 	for (unsigned i = 0; i < arraySize(led_pwm_timers); i++) {
 #if defined(BOARD_HAS_SHARED_PWM_TIMERS)
+        printf("led io timer init.\n");
 		io_timer_init_timer(i);
 #else
+        printf("led pwm servo init.\n");
 		led_pwm_timer_init_timer(i);
 #endif
 	}
@@ -310,6 +318,39 @@ led_pwm_servo_init(void)
 
 	led_pwm_servo_arm(true);
 	return OK;
+}
+
+int
+led_pwm_servo_init_group_map(uint8_t timer_map, uint32_t channel_map) {
+    if (timer_map == 0 || channel_map == 0) {
+        return -EINVAL;
+    }
+    
+    uint8_t tim_idx = 0;
+    while (((timer_map >> tim_idx) & 1) == 0) {
+        tim_idx ++;
+    }
+    
+    while (((1 << tim_idx) & timer_map) != 0) {
+        io_timer_init_timer(tim_idx);
+        tim_idx ++;
+    }
+    
+    /*
+    uint8_t ch_idx = 0;
+    while ((channel_map & 1) == 0) {
+        channel_map >>= 1;
+    }
+
+    while (((1 << ch_idx) & channel_map) != 0) {
+        led_pwm_channel_init(ch_idx);
+        ch_idx ++;
+    }
+    */
+    up_pwm_servo_init(channel_map, 0);
+
+    return OK;
+
 }
 
 void

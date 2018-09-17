@@ -56,6 +56,7 @@
 /* PX4FMU GPIOs ***********************************************************************************/
 /* LEDs */
 #define GPIO_LED1		(GPIO_OUTPUT|GPIO_OPENDRAIN|GPIO_SPEED_50MHz|GPIO_OUTPUT_CLEAR|GPIO_PORTA|GPIO_PIN8)
+#define BOARD_HAS_CONTROL_STATUS_LEDS      1
 
 /* External interrupts */
 #define GPIO_EXTI_GYRO_DRDY	(GPIO_INPUT|GPIO_FLOAT|GPIO_EXTI|GPIO_PORTE|GPIO_PIN4)
@@ -92,12 +93,14 @@
 #define GPIO_SPI_CS_ACCEL_MAG_OFF	(GPIO_INPUT|GPIO_PULLDOWN|GPIO_SPEED_25MHz|GPIO_PORTD|GPIO_PIN11)
 #define GPIO_SPI_CS_BARO_OFF		(GPIO_INPUT|GPIO_PULLDOWN|GPIO_SPEED_25MHz|GPIO_PORTC|GPIO_PIN15)
 #define GPIO_SPI_CS_MPU_OFF		(GPIO_INPUT|GPIO_PULLDOWN|GPIO_SPEED_25MHz|GPIO_PORTE|GPIO_PIN3)
+#define GPIO_SPI_CS_BMI_OFF        (GPIO_INPUT|GPIO_PULLDOWN|GPIO_SPEED_25MHz|GPIO_PORTB|GPIO_PIN2)
 
 /* SPI4 chip selects */
 #define GPIO_SPI_CS_GYRO	(GPIO_OUTPUT|GPIO_PUSHPULL|GPIO_SPEED_25MHz|GPIO_OUTPUT_SET|GPIO_PORTB|GPIO_PIN2)
 #define GPIO_SPI_CS_ACCEL_MAG	(GPIO_OUTPUT|GPIO_PUSHPULL|GPIO_SPEED_25MHz|GPIO_OUTPUT_SET|GPIO_PORTD|GPIO_PIN11)
 #define GPIO_SPI_CS_BARO	(GPIO_OUTPUT|GPIO_PUSHPULL|GPIO_SPEED_25MHz|GPIO_OUTPUT_SET|GPIO_PORTC|GPIO_PIN15)
 #define GPIO_SPI_CS_MPU		(GPIO_OUTPUT|GPIO_PUSHPULL|GPIO_SPEED_25MHz|GPIO_OUTPUT_SET|GPIO_PORTE|GPIO_PIN3)
+#define GPIO_SPI_CS_BMI        (GPIO_OUTPUT|GPIO_PUSHPULL|GPIO_SPEED_25MHz|GPIO_OUTPUT_SET|GPIO_PORTB|GPIO_PIN2)
 
 
 /* SPI2 off */
@@ -116,14 +119,15 @@
 #define PX4_SPI_BUS_EXT		2
 #define PX4_SPI_BUS_BARO	PX4_SPI_BUS_SENSORS
 
-/* Use these in place of the spi_dev_e enumeration to select a specific SPI device on SPI4 */
-#define PX4_SPIDEV_GYRO		1
-#define PX4_SPIDEV_ACCEL_MAG	2
-#define PX4_SPIDEV_BARO		3
-#define PX4_SPIDEV_MPU		4
+/* Use these in place of the uint32_t enumeration to select a specific SPI device on SPI4 */
+#define PX4_SPIDEV_GYRO       PX4_MK_SPI_SEL(PX4_SPI_BUS_SENSORS, 1)
+#define PX4_SPIDEV_ACCEL_MAG  PX4_MK_SPI_SEL(PX4_SPI_BUS_SENSORS, 2)
+#define PX4_SPIDEV_BARO       PX4_MK_SPI_SEL(PX4_SPI_BUS_SENSORS, 3)
+#define PX4_SPIDEV_MPU        PX4_MK_SPI_SEL(PX4_SPI_BUS_SENSORS, 4)
+#define PX4_SPIDEV_BMI        PX4_MK_SPI_SEL(PX4_SPI_BUS_SENSORS, 5)
 
 /* External bus */
-#define PX4_SPIDEV_EXT0		1
+#define PX4_SPIDEV_EXT0       PX4_MK_SPI_SEL(PX4_SPI_BUS_EXT, 1)
 
 
 /* I2C busses */
@@ -135,9 +139,8 @@
  *
  * Note that these are unshifted addresses.
  */
-#define PX4_I2C_OBDEV_HMC5883	0x1e
-#define PX4_I2C_OBDEV_LED	0x55
-// #define PX4_I2C_OBDEV_MPU6050	0x68
+#define PX4_I2C_OBDEV_HMC5883    0x1e
+
 
 /*
  * ADC channels
@@ -253,6 +256,13 @@
 #define GPIO_TIM3_CH3IN		GPIO_TIM3_CH3IN_1
 #define GPIO_TIM3_CH4IN		GPIO_TIM3_CH4IN_1
 
+#define BOARD_HAS_ECU_PWM   DIRECT_PWM_OUTPUT_CHANNELS
+#define BOARD_HAS_LED_PWM   1
+#define BOARD_LED_PWM_DRIVE_ACTIVE_LOW 1
+#define LED_TIM2_CH2OUT        GPIO_TIM2_CH2OUT
+#define LED_TIM2_CH3OUT        GPIO_TIM2_CH3OUT
+#define LED_TIM2_CH4OUT        GPIO_TIM2_CH4OUT
+
 
 /* USB OTG FS
  *
@@ -278,7 +288,7 @@
 
 // #define GPIO_RSSI_IN                (GPIO_INPUT|GPIO_PULLUP|GPIO_PORTC|GPIO_PIN1)
 #define GPIO_SBUS_INV                  (GPIO_OUTPUT|GPIO_PUSHPULL|GPIO_SPEED_2MHz|GPIO_OUTPUT_SET|GPIO_PORTA|GPIO_PIN10)
-#define INVERT_RC_INPUT(_invert_true)  px4_arch_gpiowrite(GPIO_SBUS_INV, _invert_true);
+#define BOARD_INVERT_RC_INPUT(_invert_true, _na)  px4_arch_gpiowrite(GPIO_SBUS_INV, _invert_true);
 
 #define GPIO_FRSKY_INV                (GPIO_OUTPUT|GPIO_PUSHPULL|GPIO_SPEED_2MHz|GPIO_OUTPUT_SET|GPIO_PORTB|GPIO_PIN12)
 #define INVERT_FRSKY(_invert_true)    px4_arch_gpiowrite(GPIO_FRSKY_INV, _invert_true);
@@ -300,6 +310,7 @@
 #define SPEKTRUM_RX_AS_UART()         px4_arch_configgpio(GPIO_USART1_RX)
 #define SPEKTRUM_OUT(_one_true)       px4_arch_gpiowrite(GPIO_PPM_IN_AS_OUT, (_one_true))
 
+
 #define BOARD_NAME "MINDPX_V2"
 
 /* By Providing BOARD_ADC_USB_CONNECTED (using the px4_arch abstraction)
@@ -319,10 +330,7 @@
 		{GPIO_GPIO1_INPUT,       GPIO_GPIO1_OUTPUT,       0}, \
 		{GPIO_GPIO2_INPUT,       GPIO_GPIO2_OUTPUT,       0}, \
 		{GPIO_GPIO3_INPUT,       GPIO_GPIO3_OUTPUT,       0}, \
-		{GPIO_GPIO4_INPUT,       GPIO_GPIO4_OUTPUT,       0}, \
-		{GPIO_GPIO5_INPUT,       GPIO_GPIO5_OUTPUT,       0}, \
-		{GPIO_GPIO6_INPUT,       GPIO_GPIO6_OUTPUT,       0}, \
-		{GPIO_GPIO7_INPUT,       GPIO_GPIO7_OUTPUT,       0}, }
+		{GPIO_GPIO4_INPUT,       GPIO_GPIO4_OUTPUT,       0}, }
 
 /*
  * GPIO numbers.
@@ -334,9 +342,6 @@
 #define GPIO_SERVO_3			(1<<2)		/**< servo 3 output */
 #define GPIO_SERVO_4			(1<<3)		/**< servo 4 output */
 #define GPIO_SERVO_5			(1<<4)		/**< servo 5 output */
-#define GPIO_SERVO_6			(1<<5)		/**< servo 6 output */
-#define GPIO_SERVO_7			(1<<6)		/**< servo 7 output */
-#define GPIO_SERVO_8			(1<<7)		/**< servo 8 output */
 
 /* This board provides a DMA pool and APIs */
 
