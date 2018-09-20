@@ -85,6 +85,8 @@ void Simulator::pack_actuator_message(mavlink_hil_actuator_controls_t &msg, unsi
 
 	const float pwm_center = (PWM_DEFAULT_MAX + PWM_DEFAULT_MIN) / 2;
 
+	int _system_type = _param_system_type.get();
+
 	/* scale outputs depending on system type */
 	if (_system_type == MAV_TYPE_QUADROTOR ||
 	    _system_type == MAV_TYPE_HEXAROTOR ||
@@ -668,12 +670,6 @@ void Simulator::pollForMAVLinkMessages(bool publish, int udp_port)
 
 	// udp socket data
 	struct sockaddr_in _myaddr;
-
-	if (udp_port < 1) {
-		int32_t prt;
-		param_get(param_find("SITL_UDP_PRT"), &prt);
-		udp_port = prt;
-	}
 
 	// try to setup udp socket for communcation with simulator
 	memset((char *)&_myaddr, 0, sizeof(_myaddr));

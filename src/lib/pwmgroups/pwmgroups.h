@@ -114,7 +114,7 @@
 #define _SYSTEMLIB_PWM_GROUPS_H value
 
 #include <px4_config.h>
-#include "../drivers/device/CDev.hpp"
+#include <lib/cdev/CDev.hpp>
 
 typedef enum {
     PWM_GROUP_RATE_ALT,
@@ -130,7 +130,7 @@ typedef enum {
  * Abstract class defining a mixer mixing zero or more inputs to
  * one or more outputs.
  */
-class __EXPORT PwmGroups : public device::CDev
+class __EXPORT PwmGroups : public cdev::CDev
 {
 public:
 	/**
@@ -194,7 +194,7 @@ public:
      * @return     0 on success.
      *
 	 */
-    int set_pwm_channel_value_single (uint8_t device_channel_idx, uint8_t value);
+    int set_pwm_channel_value_single (uint8_t device_channel_idx, unsigned value);
 
 	/**
 	 * @brief Set current working mode, hence the working channel map.
