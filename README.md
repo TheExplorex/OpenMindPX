@@ -29,6 +29,7 @@ OpenMindPX is a sub-project of DroneTag. To find guides and technical supports o
 This repository contains code supporting these Autopilots:
   * [Airmind MindPX V2.8](http://www.mindpx.net/assets/accessories/UserGuide_MindPX.pdf)
   * [Airmind MindRacer V1.2](http://mindpx.net/assets/accessories/mindracer_user_guide_v1.2.pdf)
+  
 Following boards are also be supported:
   * [Snapdragon Flight](https://docs.px4.io/en/flight_controller/snapdragon_flight.html)
   * [Intel Aero](https://docs.px4.io/en/flight_controller/intel_aero.html)
